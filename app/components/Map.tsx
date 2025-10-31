@@ -444,6 +444,10 @@ const Map: React.FC<Props> = ({
             interactive: true
           });
 
+          // default view settings (used for reset)
+          const DEFAULT_ZOOM = 16.5;
+
+
           // Create the marker element
           const markerContainer = document.createElement('div');
           markerContainer.className = 'marker-container';
@@ -453,7 +457,7 @@ const Map: React.FC<Props> = ({
 
           const img = document.createElement('img');
           img.id = 'markerImg';
-          img.src = 'assets/icons/Smile-Cody_3D.png';
+          img.src = 'https://api.dicebear.com/9.x/avataaars/svg?seed=Nolan';
           img.style.width = '48px';
           img.style.height = '48px';
           img.style.display = 'block';
@@ -466,6 +470,21 @@ const Map: React.FC<Props> = ({
           const marker = new maplibregl.Marker({ element: markerContainer, anchor: 'center' })
             .setLngLat([0, 0])
             .addTo(map);
+
+          // Make marker clickable and reset view when clicked while zoomed out
+          markerContainer.style.cursor = 'pointer';
+          markerContainer.addEventListener('click', () => {
+            try {
+              const currentZoom = typeof map.getZoom === 'function' ? map.getZoom() : null;
+              // if user zoomed out (threshold 14), reset to default zoom/center
+              const ZOOM_THRESHOLD = 14;
+              if (currentZoom !== null && currentZoom < ZOOM_THRESHOLD) {
+                map.easeTo({ center: [state.lng, state.lat], zoom: DEFAULT_ZOOM, duration: 500 });
+              }
+            } catch (err) {
+              // ignore
+            }
+          });
 
           markerContainer.style.display = 'none';
           pulse.style.display = 'none';
