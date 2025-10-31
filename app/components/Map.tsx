@@ -389,7 +389,8 @@ const Map: React.FC<Props> = ({
   const longitude = location.coords.longitude;
   const webviewRef = useRef<any | null>(null);
 
-  // WebView HTML that listens for messages to update marker, visibility and style
+  // Keep the HTML static so WebView doesn't reload on every prop change.
+  // All dynamic updates are sent via postMessage.
   const html = `
     <!doctype html>
     <html>
@@ -398,9 +399,9 @@ const Map: React.FC<Props> = ({
         <style>
           html,body,#map{height:100%;width:100%;margin:0;padding:0}
           .marker-container{position:relative; width:84px; height:84px; display:flex;align-items:center;justify-content:center}
-          .pulse{position:absolute;width:34px;height:34px;border-radius:50%;background:${isDark ? "#ff7ce5" : "#7c3aed"};animation:pulse 1.6s ease-in-out infinite;pointer-events:none;filter:blur(0.4px);}
+          .pulse{position:absolute;width:34px;height:34px;border-radius:50%;background:#7c3aed;animation:pulse 1.6s ease-in-out infinite;pointer-events:none;filter:blur(0.4px);}
           @keyframes pulse{0%{transform:scale(1);opacity:0.7}100%{transform:scale(2.6);opacity:0}}
-          .marker{position:relative;width:30px;height:30px;border:4px solid white;border-radius:50%;background:${isDark ? "#0ea5a4" : "#06b6d4"};display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:24px;box-shadow:0 10px 24px rgba(0,0,0,0.3);z-index:2}
+          .marker{position:relative;width:30px;height:30px;border:4px solid white;border-radius:50%;background:#06b6d4;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:24px;box-shadow:0 10px 24px rgba(0,0,0,0.3);z-index:2}
           /* hide MapLibre controls we don't want */
           .maplibregl-ctrl { display: none; }
           /* but keep navigation control container available when needed */
@@ -417,34 +418,31 @@ const Map: React.FC<Props> = ({
         <script>
           const MAPTILER_KEY = '${MAPTILER_KEY}';
 
-          // initial state
+          // initial state (will be updated by React Native via postMessage)
           let state = {
-            lat: ${latitude},
-            lng: ${longitude},
-            visible: ${isVisible},
-            isDark: ${isDark},
-            style: ${mapType === "satellite" ? "'satellite'" : "'streets-v4'"},
-            name: '${name.charAt(0).toUpperCase()}'
+            lat: 0,
+            lng: 0,
+            visible: false,
+            isDark: false,
+            style: 'streets-v4',
+            name: 'H'
           };
 
           const styleFor = (type) => {
             if (type === 'satellite') return 'https://api.maptiler.com/maps/hybrid/style.json?key=' + MAPTILER_KEY;
-            // keep streets style for better label readability; dark tint is handled with overlay + filter
             return 'https://api.maptiler.com/maps/streets-v4/style.json?key=' + MAPTILER_KEY;
           }
 
           const map = new maplibregl.Map({
             container: 'map',
             style: styleFor(state.style),
-            center: [state.lng, state.lat],
+            center: [0, 0],
             zoom: 16.5,
             pitch: 45,
             bearing: 0,
             attributionControl: false,
             interactive: true
           });
-
-          // remove default zoom controls by not adding them
 
           // Create the marker element
           const markerContainer = document.createElement('div');
@@ -453,140 +451,123 @@ const Map: React.FC<Props> = ({
           const pulse = document.createElement('div');
           pulse.className = 'pulse';
 
-          // Using SVG image from app assets as marker
-          // Previous marker implementation (kept commented for now):
-          // const markerEl = document.createElement('div');
-          // markerEl.className = 'marker';
-          // markerEl.innerText = state.name;
-          // markerContainer.appendChild(pulse);
-          // markerContainer.appendChild(markerEl);
-
-          // New: use an <img> element pointing at the app asset SVG (assets/icons/Smile-Cody_3D.png)
           const img = document.createElement('img');
           img.id = 'markerImg';
           img.src = 'assets/icons/Smile-Cody_3D.png';
           img.style.width = '48px';
           img.style.height = '48px';
           img.style.display = 'block';
-          img.style.transform = 'translateY(6px)'; // nudge so cone tip aligns
+          img.style.transform = 'translateY(6px)';
           img.style.zIndex = '9999';
 
           markerContainer.appendChild(pulse);
           markerContainer.appendChild(img);
 
           const marker = new maplibregl.Marker({ element: markerContainer, anchor: 'center' })
-            .setLngLat([state.lng, state.lat])
+            .setLngLat([0, 0])
             .addTo(map);
 
-          // apply visibility: hide entire marker container when not visible
-          markerContainer.style.display = state.visible ? 'flex' : 'none';
-          pulse.style.display = state.visible ? 'block' : 'none';
-          // apply dark overlay initially (gentle tint so text/blocks remain legible)
+          markerContainer.style.display = 'none';
+          pulse.style.display = 'none';
+
           const darkOverlay = document.getElementById('darkOverlay');
           const mapEl = document.getElementById('map');
-          if (darkOverlay) darkOverlay.style.opacity = state.isDark ? '0.18' : '0';
-          if (mapEl) mapEl.style.filter = state.isDark ? 'brightness(0.95) contrast(1.02)' : '';
 
-          // helper to update marker position and content
           function updateMarker({ lat, lng, visible, name }) {
             if (typeof lat === 'number' && typeof lng === 'number') {
               marker.setLngLat([lng, lat]);
-              map.easeTo({ center: [lng, lat], duration: 800 });
+              map.easeTo({ center: [lng, lat], duration: 300 });
             }
             if (typeof visible === 'boolean') {
-              // toggle the whole marker (scoop/pulse/whatever element is inside)
               markerContainer.style.display = visible ? 'flex' : 'none';
+              pulse.style.display = visible ? 'block' : 'none';
             }
             if (typeof name === 'string') {
-              const markerEl = document.querySelector('.marker');
-              if (markerEl) markerEl.innerText = name.charAt(0).toUpperCase();
               const imgEl = document.getElementById('markerImg');
               if (imgEl) imgEl.setAttribute('data-name', name.charAt(0).toUpperCase());
             }
           }
 
-          // message handler from React Native
           function handleMessage(msg) {
             try {
               const data = typeof msg === 'string' ? JSON.parse(msg) : msg;
-              if (data.type === 'update') {
-                if (data.payload) {
-                  if (data.payload.mapType) {
-                    const newStyle = data.payload.mapType === 'satellite' ? 'satellite' : 'streets-v4';
-                    if (newStyle !== state.style) {
-                      state.style = newStyle;
-                      map.setStyle(styleFor(state.style));
-                    }
+              if (data.type === 'update' && data.payload) {
+                const p = data.payload;
+                if (p.mapType) {
+                  const newStyle = p.mapType === 'satellite' ? 'satellite' : 'streets-v4';
+                  if (newStyle !== state.style) {
+                    state.style = newStyle;
+                    map.setStyle(styleFor(state.style));
                   }
-                  if (typeof data.payload.isDark === 'boolean') {
-                    state.isDark = data.payload.isDark;
-                    const darkOverlay = document.getElementById('darkOverlay');
-                    const mapEl = document.getElementById('map');
-                    if (darkOverlay) darkOverlay.style.opacity = state.isDark ? '0.18' : '0';
-                    if (mapEl) mapEl.style.filter = state.isDark ? 'brightness(0.95) contrast(1.02)' : '';
-                    // when toggling dark mode, if not in satellite, we keep streets style and rely on overlay/filter
-                    if (state.style !== 'satellite') {
-                      map.setStyle(styleFor(state.style));
-                    }
-                  }
-                  if (data.payload.latitude && data.payload.longitude) {
-                    state.lat = data.payload.latitude;
-                    state.lng = data.payload.longitude;
-                  }
-                  if (typeof data.payload.isVisible === 'boolean') {
-                    state.visible = data.payload.isVisible;
-                  }
-                  if (data.payload.name) state.name = data.payload.name.charAt(0).toUpperCase();
-                  updateMarker({ lat: state.lat, lng: state.lng, visible: state.visible, name: state.name });
                 }
+                if (typeof p.isDark === 'boolean') {
+                  state.isDark = p.isDark;
+                  if (darkOverlay) darkOverlay.style.opacity = state.isDark ? '0.18' : '0';
+                  if (mapEl) mapEl.style.filter = state.isDark ? 'brightness(0.95) contrast(1.02)' : '';
+                  if (state.style !== 'satellite') {
+                    map.setStyle(styleFor(state.style));
+                  }
+                }
+                if (typeof p.latitude === 'number' && typeof p.longitude === 'number') {
+                  state.lat = p.latitude;
+                  state.lng = p.longitude;
+                }
+                if (typeof p.isVisible === 'boolean') state.visible = p.isVisible;
+                if (p.name) state.name = p.name.charAt(0).toUpperCase();
+                updateMarker({ lat: state.lat, lng: state.lng, visible: state.visible, name: state.name });
               }
             } catch (e) {
-              // ignore bad messages
               console.warn('Invalid message', e);
             }
           }
 
-          // Listen to messages from React Native WebView (support both window and document)
           window.addEventListener('message', (e) => handleMessage(e.data));
           document.addEventListener('message', (e) => handleMessage(e.data));
-
-          // Also provide a global for direct call if needed
           window.handleMapMessage = handleMessage;
         </script>
       </body>
     </html>
   `;
 
-  // Build the payload we will send to the WebView to sync state without reloading
-  const payload = JSON.stringify({
-    type: "update",
-    payload: {
+  // Send updates to the WebView. Keep the HTML static to avoid reloads.
+  const sendUpdate = (payloadObj: any) => {
+    try {
+      if (
+        webviewRef.current &&
+        typeof webviewRef.current.postMessage === "function"
+      ) {
+        webviewRef.current.postMessage(
+          JSON.stringify({ type: "update", payload: payloadObj })
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Post initial state on load end to ensure the webview has mounted
+  const initialPayload = {
+    latitude,
+    longitude,
+    isVisible,
+    isDark,
+    // always send explicit mapType so WebView can switch back to streets-v4
+    mapType: mapType === "satellite" ? "satellite" : "streets-v4",
+    name,
+  };
+
+  useEffect(() => {
+    // Whenever relevant props change, send an update to the webview.
+    sendUpdate({
       latitude,
       longitude,
       isVisible,
-      isDark: isDark,
-      mapType: mapType === "satellite" ? "satellite" : undefined,
+      isDark,
+      // always send an explicit style identifier
+      mapType: mapType === "satellite" ? "satellite" : "streets-v4",
       name,
-    },
-  });
-
-  // Determine mapType string expected by HTML ('satellite' or 'streets-v4')
-  // If parent will pass a prop named 'mapType' in future, this logic should accept it.
-  // For now, respect isDark only as a fallback for style in the initial HTML; we'll post messages to change style.
-
-  // Post updates to the WebView whenever the relevant props change.
-  useEffect(() => {
-    if (
-      webviewRef.current &&
-      typeof webviewRef.current.postMessage === "function"
-    ) {
-      try {
-        webviewRef.current.postMessage(payload);
-      } catch {
-        // ignore post errors
-      }
-    }
-  }, [latitude, longitude, isVisible, mapType, name, payload]);
+    });
+  }, [latitude, longitude, isVisible, isDark, mapType, name]);
 
   return (
     <View className="flex-1">
@@ -599,6 +580,7 @@ const Map: React.FC<Props> = ({
         domStorageEnabled={true}
         injectedJavaScriptBeforeContentLoaded={``}
         ref={webviewRef}
+        onLoadEnd={() => sendUpdate(initialPayload)}
         onMessage={() => {
           /* reserved for future */
         }}
@@ -606,4 +588,5 @@ const Map: React.FC<Props> = ({
     </View>
   );
 };
+
 export default Map;

@@ -4,7 +4,7 @@
     "slug": "meetme2",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/logo/meetmelogo.png",
     "scheme": "meetme2",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -40,7 +40,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/logo/meetmelogo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
