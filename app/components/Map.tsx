@@ -476,8 +476,444 @@
 
 // export default Map;
 
-import React, { useEffect, useMemo, useRef } from "react";
-import { View } from "react-native";
+// import { Ionicons } from "@expo/vector-icons";
+// import Constants from "expo-constants";
+// import React, { useEffect, useMemo, useRef, useState } from "react";
+// import {
+//   Animated,
+//   Dimensions,
+//   Image,
+//   Modal,
+//   Text,
+//   TouchableOpacity,
+//   View,
+// } from "react-native";
+// import { WebView } from "react-native-webview";
+// import { getMapHTML } from "./mapTemplate";
+
+// type Props = {
+//   location: { coords: { latitude: number; longitude: number } };
+//   isVisible: boolean;
+//   isDark: boolean;
+//   mapType?: "standard" | "satellite" | "hybrid";
+//   name?: string;
+// };
+
+// const MAPTILER_KEY =
+//   (Constants.expoConfig?.extra as any)?.MAPTILER_KEY ??
+//   (Constants.manifest?.extra as any)?.MAPTILER_KEY ??
+//   "";
+
+// const Map: React.FC<Props> = ({
+//   location,
+//   isVisible,
+//   isDark,
+//   mapType = "standard",
+//   name = "H",
+// }) => {
+//   const webviewRef = useRef<WebView>(null);
+//   const latitude = location.coords.latitude;
+//   const longitude = location.coords.longitude;
+
+//   // Bottom sheet / modal state for marker info
+//   const [sheetVisible, setSheetVisible] = useState(false);
+//   const sheetAnim = useRef(new Animated.Value(0)).current;
+//   const [selectedUser, setSelectedUser] = useState<any | null>(null);
+//   const WINDOW_HEIGHT = Dimensions.get("window").height;
+
+//   const openSheet = (payload: any) => {
+//     setSelectedUser(payload || null);
+//     setSheetVisible(true);
+//     Animated.timing(sheetAnim, {
+//       toValue: 1,
+//       duration: 300,
+//       useNativeDriver: true,
+//     }).start();
+//   };
+
+//   const closeSheet = () => {
+//     Animated.timing(sheetAnim, {
+//       toValue: 0,
+//       duration: 220,
+//       useNativeDriver: true,
+//     }).start(() => {
+//       setSheetVisible(false);
+//       setSelectedUser(null);
+//     });
+//   };
+
+//   const sheetTranslateY = sheetAnim.interpolate({
+//     inputRange: [0, 1],
+//     outputRange: [WINDOW_HEIGHT, WINDOW_HEIGHT / 2],
+//   });
+
+//   const handleWebViewMessage = (event: any) => {
+//     try {
+//       const raw = event?.nativeEvent?.data;
+//       const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+//       if (data?.type === "markerTapped") {
+//         openSheet(data.payload || null);
+//       }
+//     } catch {
+//       // ignore
+//     }
+//   };
+
+//   // Hobbies selection state (dummy options)
+//   const HOBBY_OPTIONS = [
+//     "Photography",
+//     "Hiking",
+//     "Cooking",
+//     "Gaming",
+//     "Cycling",
+//     "Reading",
+//     "Travel",
+//     "Music",
+//   ];
+//   const [selectedHobbies, setSelectedHobbies] = useState<string[]>([]);
+
+//   const toggleHobby = (hobby: string) => {
+//     setSelectedHobbies((prev) => {
+//       if (prev.includes(hobby)) return prev.filter((h) => h !== hobby);
+//       if (prev.length >= 5) return prev; // limit to 5
+//       return [...prev, hobby];
+//     });
+//   };
+
+//   const handleAdd = () => {
+//     // production-grade: replace with API call / navigation as needed
+//     console.log("send-add-request", {
+//       user: selectedUser,
+//       hobbies: selectedHobbies,
+//     });
+//     // simulate success and close
+//     closeSheet();
+//   };
+
+//   // Generate static HTML once
+//   const html = useMemo(() => getMapHTML(MAPTILER_KEY), []);
+
+//   // Safe message sender with retry
+//   const sendUpdate = (payloadObj: any) => {
+//     const msg = JSON.stringify({ type: "update", payload: payloadObj });
+//     const trySend = (attempts = 3) => {
+//       if (webviewRef.current?.postMessage) {
+//         webviewRef.current.postMessage(msg);
+//       } else if (attempts > 0) {
+//         setTimeout(() => trySend(attempts - 1), 300);
+//       }
+//     };
+//     trySend();
+//   };
+
+//   const initialPayload = {
+//     latitude,
+//     longitude,
+//     isVisible,
+//     isDark,
+//     mapType: mapType === "satellite" ? "satellite" : "streets-v4",
+//     name,
+//   };
+
+//   // Update when props change
+//   useEffect(() => {
+//     sendUpdate({
+//       latitude,
+//       longitude,
+//       isVisible,
+//       isDark,
+//       mapType: mapType === "satellite" ? "satellite" : "streets-v4",
+//       name,
+//     });
+//   }, [latitude, longitude, isVisible, isDark, mapType, name]);
+
+//   return (
+//     <View className="flex-1">
+//       <WebView
+//         originWhitelist={["*"]}
+//         source={{ html }}
+//         style={{ flex: 1 }}
+//         ref={webviewRef}
+//         javaScriptEnabled
+//         domStorageEnabled
+//         scrollEnabled={false}
+//         onLoadEnd={() => sendUpdate(initialPayload)}
+//         onMessage={handleWebViewMessage}
+//       />
+
+//       {/* Bottom sheet modal shown when marker is tapped inside the WebView */}
+//       {/* <Modal transparent visible={sheetVisible} animationType="none">
+//         <TouchableOpacity
+//           className="absolute inset-0 bg-black/40"
+//           activeOpacity={1}
+//           onPress={closeSheet}
+//         />
+
+//         <Animated.View
+//           style={{ transform: [{ translateY: sheetTranslateY }] }}
+//           className="absolute left-0 right-0 h-1/2 rounded-t-2xl bg-white shadow-lg"
+//         >
+//           <View className="w-12 h-1.5 rounded-full bg-gray-200 self-center mt-2" />
+
+//           <View className="p-4">
+//             <View className="flex-row items-center">
+//               <Image
+//                 source={
+//                   selectedUser?.avatar
+//                     ? { uri: selectedUser.avatar }
+//                     : {
+//                         uri: `https://api.dicebear.com/9.x/avataaars/svg?seed=${name}`,
+//                       }
+//                 }
+//                 className="w-16 h-16 rounded-full mr-3 bg-gray-100"
+//               />
+
+//               <View className="flex-1">
+//                 <Text className="text-lg font-semibold text-gray-900">
+//                   {selectedUser?.name ?? name}
+//                 </Text>
+//                 <Text className="text-sm text-gray-500">
+//                   {selectedUser?.gender ? `Gender: ${selectedUser.gender}` : ""}
+//                 </Text>
+//               </View>
+//             </View>
+
+//             <View className="mt-3 space-y-2">
+//               <View>
+//                 <Text className="text-sm text-gray-500">
+//                   Last crossed path at
+//                 </Text>
+//                 <Text className="text-sm text-gray-700">City Tower</Text>
+//               </View>
+
+//               <View className="flex-row items-center justify-between">
+//                 <View className="flex-row items-center space-x-2">
+//                   <Text className="text-sm text-gray-500">Distance</Text>
+//                   <Text className="text-sm font-medium text-gray-800">
+//                     13 m
+//                   </Text>
+//                 </View>
+//                 <View className="flex-row items-center space-x-3">
+//                   <Text className="text-sm text-gray-500">Last seen</Text>
+//                   <Text className="text-sm text-gray-800">12:13 pm</Text>
+//                 </View>
+//               </View>
+//             </View>
+
+//             <View className="mt-4">
+//               <Text className="text-sm text-gray-600 mb-2">
+//                 Select up to 5 hobbies
+//               </Text>
+//               <View className="flex-row flex-wrap">
+//                 {HOBBY_OPTIONS.map((hobby) => {
+//                   const active = selectedHobbies.includes(hobby);
+//                   const disabled = !active && selectedHobbies.length >= 5;
+//                   return (
+//                     <TouchableOpacity
+//                       key={hobby}
+//                       onPress={() => toggleHobby(hobby)}
+//                       activeOpacity={0.8}
+//                       className={`px-3 py-1 rounded-full mr-2 mb-2 border ${active ? "bg-indigo-600 border-indigo-600" : "bg-white border-gray-200"} ${disabled ? "opacity-40" : ""}`}
+//                       disabled={disabled}
+//                     >
+//                       <Text
+//                         className={`${active ? "text-white" : "text-gray-700"} text-sm`}
+//                       >
+//                         {hobby}
+//                       </Text>
+//                     </TouchableOpacity>
+//                   );
+//                 })}
+//               </View>
+//               <Text className="text-xs text-gray-400 mt-1">
+//                 {selectedHobbies.length} / 5 selected
+//               </Text>
+//             </View>
+
+//             <View className="mt-4">
+//               <TouchableOpacity
+//                 onPress={handleAdd}
+//                 activeOpacity={0.85}
+//                 className="w-full bg-indigo-600 py-3 rounded-lg items-center justify-center"
+//               >
+//                 <View className="flex-row items-center justify-center">
+//                   <Ionicons name="person-add" size={18} color="#fff" />
+//                   <Text className="text-white font-semibold ml-2">
+//                     Send Request
+//                   </Text>
+//                 </View>
+//               </TouchableOpacity>
+//             </View>
+//           </View>
+//         </Animated.View>
+//       </Modal> */}
+//       <Modal transparent visible={sheetVisible} animationType="none">
+//         <TouchableOpacity
+//           className="flex-1 bg-black/50"
+//           activeOpacity={1}
+//           onPress={closeSheet}
+//         />
+
+//         <Animated.View
+//           style={{
+//             transform: [{ translateY: sheetTranslateY }],
+//             position: "absolute",
+//             bottom: 0,
+//             left: 0,
+//             right: 0,
+//           }}
+//           className="rounded-t-3xl bg-white shadow-2xl"
+//         >
+//           {/* Drag Handle */}
+//           <View className="w-12 h-1 rounded-full bg-gray-300 self-center mt-3" />
+
+//           <View className="px-6 py-5">
+//             {/* Header Section */}
+//             <View className="flex-row items-center mb-6">
+//               <View className="relative">
+//                 <Image
+//                   source={
+//                     selectedUser?.avatar
+//                       ? { uri: selectedUser.avatar }
+//                       : {
+//                           uri: `https://api.dicebear.com/9.x/avataaars/svg?seed=${name}`,
+//                         }
+//                   }
+//                   className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100"
+//                 />
+//                 <View className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-full border-2 border-white" />
+//               </View>
+
+//               <View className="flex-1 ml-4">
+//                 <Text className="text-xl font-bold text-gray-900 mb-1">
+//                   {selectedUser?.name ?? name}
+//                 </Text>
+//                 {selectedUser?.gender && (
+//                   <View className="flex-row items-center">
+//                     <View className="w-2 h-2 rounded-full bg-indigo-500 mr-2" />
+//                     <Text className="text-sm text-gray-600">
+//                       {selectedUser.gender}
+//                     </Text>
+//                   </View>
+//                 )}
+//               </View>
+//             </View>
+
+//             {/* Location & Stats Card */}
+//             <View className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-4 mb-5">
+//               <View className="flex-row items-center mb-3">
+//                 <Ionicons name="location" size={16} color="#6366f1" />
+//                 <Text className="text-xs font-medium text-gray-500 ml-1 uppercase tracking-wide">
+//                   Last Crossed Path
+//                 </Text>
+//               </View>
+//               <Text className="text-base font-semibold text-gray-900 mb-4">
+//                 City Tower
+//               </Text>
+
+//               <View className="flex-row items-center justify-between">
+//                 <View className="flex-1">
+//                   <Text className="text-xs text-gray-500 mb-1">Distance</Text>
+//                   <View className="flex-row items-center">
+//                     <Ionicons name="walk" size={14} color="#6366f1" />
+//                     <Text className="text-base font-bold text-gray-900 ml-1">
+//                       13 m
+//                     </Text>
+//                   </View>
+//                 </View>
+
+//                 <View className="w-px h-10 bg-gray-200" />
+
+//                 <View className="flex-1 items-end">
+//                   <Text className="text-xs text-gray-500 mb-1">Last Seen</Text>
+//                   <View className="flex-row items-center">
+//                     <Ionicons name="time" size={14} color="#6366f1" />
+//                     <Text className="text-base font-bold text-gray-900 ml-1">
+//                       12:13 pm
+//                     </Text>
+//                   </View>
+//                 </View>
+//               </View>
+//             </View>
+
+//             {/* Hobbies Section */}
+//             <View className="mb-5">
+//               <View className="flex-row items-center justify-between mb-3">
+//                 <Text className="text-base font-semibold text-gray-900">
+//                   Select Hobbies
+//                 </Text>
+//                 <View className="bg-indigo-100 px-3 py-1 rounded-full">
+//                   <Text className="text-xs font-medium text-indigo-700">
+//                     {selectedHobbies.length} / 5
+//                   </Text>
+//                 </View>
+//               </View>
+
+//               <View className="flex-row flex-wrap -mx-1">
+//                 {HOBBY_OPTIONS.map((hobby) => {
+//                   const active = selectedHobbies.includes(hobby);
+//                   const disabled = !active && selectedHobbies.length >= 5;
+//                   return (
+//                     <TouchableOpacity
+//                       key={hobby}
+//                       onPress={() => toggleHobby(hobby)}
+//                       activeOpacity={0.7}
+//                       className={`px-4 py-2.5 rounded-xl mx-1 mb-2 ${
+//                         active
+//                           ? "bg-gradient-to-r from-indigo-600 to-purple-600 shadow-md"
+//                           : "bg-gray-50 border border-gray-200"
+//                       } ${disabled ? "opacity-40" : ""}`}
+//                       disabled={disabled}
+//                     >
+//                       <Text
+//                         className={`${
+//                           active ? "text-white font-semibold" : "text-gray-700"
+//                         } text-sm`}
+//                       >
+//                         {hobby}
+//                       </Text>
+//                     </TouchableOpacity>
+//                   );
+//                 })}
+//               </View>
+//             </View>
+
+//             {/* Action Button */}
+//             <TouchableOpacity
+//               onPress={handleAdd}
+//               activeOpacity={0.9}
+//               className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 py-4 rounded-xl shadow-lg active:scale-98"
+//             >
+//               <View className="flex-row items-center justify-center">
+//                 <Ionicons name="person-add" size={20} color="#fff" />
+//                 <Text className="text-white text-base font-bold ml-2">
+//                   Send Connection Request
+//                 </Text>
+//               </View>
+//             </TouchableOpacity>
+//           </View>
+//         </Animated.View>
+//       </Modal>
+//     </View>
+//   );
+// };
+
+// export default Map;
+
+import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Animated,
+  Dimensions,
+  Image,
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+  useColorScheme,
+} from "react-native";
 import { WebView } from "react-native-webview";
 import { getMapHTML } from "./mapTemplate";
 
@@ -489,7 +925,10 @@ type Props = {
   name?: string;
 };
 
-const MAPTILER_KEY = "qS0xgMLsgLjhkms1aPKb";
+const MAPTILER_KEY =
+  (Constants.expoConfig?.extra as any)?.MAPTILER_KEY ??
+  (Constants.manifest?.extra as any)?.MAPTILER_KEY ??
+  "";
 
 const Map: React.FC<Props> = ({
   location,
@@ -501,6 +940,86 @@ const Map: React.FC<Props> = ({
   const webviewRef = useRef<WebView>(null);
   const latitude = location.coords.latitude;
   const longitude = location.coords.longitude;
+  const colorScheme = useColorScheme();
+
+  // Bottom sheet / modal state for marker info
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const sheetAnim = useRef(new Animated.Value(0)).current;
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const WINDOW_HEIGHT = Dimensions.get("window").height;
+
+  const openSheet = (payload: any) => {
+    setSelectedUser(payload || null);
+    setSheetVisible(true);
+    Animated.spring(sheetAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      damping: 20,
+      stiffness: 100,
+    }).start();
+  };
+
+  const closeSheet = () => {
+    Animated.timing(sheetAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setSheetVisible(false);
+      setSelectedUser(null);
+      setSelectedHobbies([]); // Reset hobbies on close
+    });
+  };
+
+  const sheetTranslateY = sheetAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [WINDOW_HEIGHT, 0],
+  });
+
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const raw = event?.nativeEvent?.data;
+      const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (data?.type === "markerTapped") {
+        openSheet(data.payload || null);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // Hobbies selection state
+  const HOBBY_OPTIONS = [
+    "Photography",
+    "Hiking",
+    "Cooking",
+    "Gaming",
+    "Cycling",
+    "Reading",
+    "Travel",
+    "Music",
+  ];
+  const [selectedHobbies, setSelectedHobbies] = useState<string[]>([]);
+
+  const toggleHobby = (hobby: string) => {
+    setSelectedHobbies((prev) => {
+      if (prev.includes(hobby)) {
+        return prev.filter((h) => h !== hobby);
+      }
+      if (prev.length >= 5) {
+        return prev;
+      }
+      return [...prev, hobby];
+    });
+  };
+
+  const handleAdd = () => {
+    console.log("send-add-request", {
+      user: selectedUser,
+      hobbies: selectedHobbies,
+    });
+    closeSheet();
+  };
 
   // Generate static HTML once
   const html = useMemo(() => getMapHTML(MAPTILER_KEY), []);
@@ -539,6 +1058,18 @@ const Map: React.FC<Props> = ({
     });
   }, [latitude, longitude, isVisible, isDark, mapType, name]);
 
+  // Dark mode colors
+  const bgColor = colorScheme === "dark" ? "bg-gray-900" : "bg-white";
+  const textPrimary = colorScheme === "dark" ? "text-white" : "text-gray-900";
+  const textSecondary =
+    colorScheme === "dark" ? "text-gray-400" : "text-gray-600";
+  const textTertiary =
+    colorScheme === "dark" ? "text-gray-500" : "text-gray-500";
+  const cardBg = colorScheme === "dark" ? "bg-gray-800" : "bg-indigo-50";
+  const borderColor =
+    colorScheme === "dark" ? "border-gray-700" : "border-gray-200";
+  const handleColor = colorScheme === "dark" ? "bg-gray-700" : "bg-gray-300";
+
   return (
     <View className="flex-1">
       <WebView
@@ -550,7 +1081,191 @@ const Map: React.FC<Props> = ({
         domStorageEnabled
         scrollEnabled={false}
         onLoadEnd={() => sendUpdate(initialPayload)}
+        onMessage={handleWebViewMessage}
       />
+
+      <Modal transparent visible={sheetVisible} animationType="none">
+        <View className="flex-1">
+          <TouchableOpacity
+            className="flex-1 bg-black/50"
+            activeOpacity={1}
+            onPress={closeSheet}
+          />
+
+          <Animated.View
+            style={{
+              transform: [{ translateY: sheetTranslateY }],
+            }}
+            className={`absolute bottom-0 left-0 right-0 rounded-t-3xl ${bgColor} shadow-2xl max-h-[85%]`}
+          >
+            {/* Drag Handle */}
+            <View
+              className={`w-12 h-1 rounded-full ${handleColor} self-center mt-3`}
+            />
+
+            <ScrollView
+              className="px-6 py-6"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {/* Centered Profile Image */}
+              <View className="items-center mb-6">
+                <View className="relative">
+                  <Image
+                    source={
+                      selectedUser?.avatar
+                        ? { uri: selectedUser.avatar }
+                        : {
+                            uri: `https://api.dicebear.com/9.x/avataaars/svg?seed=${name}`,
+                          }
+                    }
+                    className="w-28 h-28 rounded-full"
+                    style={{
+                      backgroundColor:
+                        colorScheme === "dark" ? "#374151" : "#e0e7ff",
+                    }}
+                  />
+                  <View className="absolute bottom-1 right-1 w-6 h-6 bg-green-500 rounded-full border-4 border-white" />
+                </View>
+
+                {/* Name */}
+                <Text className={`text-2xl font-bold ${textPrimary} mt-4 mb-1`}>
+                  {selectedUser?.name ?? name}
+                </Text>
+
+                {/* Gender Badge */}
+                {selectedUser?.gender && (
+                  <View className="flex-row items-center bg-indigo-100 px-3 py-1 rounded-full mt-1">
+                    <View className="w-2 h-2 rounded-full bg-indigo-600 mr-2" />
+                    <Text className="text-sm text-indigo-700 font-medium">
+                      {selectedUser.gender}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Location & Stats Card */}
+              <View className={`${cardBg} rounded-2xl p-4 mb-5`}>
+                <View className="flex-row items-center mb-3">
+                  <Ionicons name="location" size={16} color="#6366f1" />
+                  <Text
+                    className={`text-xs font-medium ${textTertiary} ml-1 uppercase tracking-wide`}
+                  >
+                    Last Crossed Path
+                  </Text>
+                </View>
+                <Text className={`text-base font-semibold ${textPrimary} mb-4`}>
+                  City Tower
+                </Text>
+
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1">
+                    <Text className={`text-xs ${textTertiary} mb-1`}>
+                      Distance
+                    </Text>
+                    <View className="flex-row items-center">
+                      <Ionicons name="walk" size={14} color="#6366f1" />
+                      <Text
+                        className={`text-base font-bold ${textPrimary} ml-1`}
+                      >
+                        13 m
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View
+                    className={`w-px h-10 ${colorScheme === "dark" ? "bg-gray-700" : "bg-gray-200"}`}
+                  />
+
+                  <View className="flex-1 items-end">
+                    <Text className={`text-xs ${textTertiary} mb-1`}>
+                      Last Seen
+                    </Text>
+                    <View className="flex-row items-center">
+                      <Ionicons name="time" size={14} color="#6366f1" />
+                      <Text
+                        className={`text-base font-bold ${textPrimary} ml-1`}
+                      >
+                        12:13 pm
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Hobbies Section */}
+              <View className="mb-5">
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text className={`text-base font-semibold ${textPrimary}`}>
+                    Select Hobbies
+                  </Text>
+                  <View className="bg-indigo-100 px-3 py-1 rounded-full">
+                    <Text className="text-xs font-medium text-indigo-700">
+                      {selectedHobbies.length} / 5
+                    </Text>
+                  </View>
+                </View>
+
+                <View className="flex-row flex-wrap -mx-1">
+                  {HOBBY_OPTIONS.map((hobby) => {
+                    const active = selectedHobbies.includes(hobby);
+                    const disabled = !active && selectedHobbies.length >= 5;
+                    return (
+                      <TouchableOpacity
+                        key={hobby}
+                        onPress={() => toggleHobby(hobby)}
+                        activeOpacity={0.7}
+                        disabled={disabled}
+                        style={{
+                          backgroundColor: active
+                            ? "#6366f1"
+                            : colorScheme === "dark"
+                              ? "#374151"
+                              : "#f9fafb",
+                          borderWidth: active ? 0 : 1,
+                          borderColor:
+                            colorScheme === "dark" ? "#4b5563" : "#e5e7eb",
+                          opacity: disabled ? 0.4 : 1,
+                        }}
+                        className="px-4 py-2.5 rounded-xl mx-1 mb-2"
+                      >
+                        <Text
+                          className={`text-sm ${
+                            active
+                              ? "text-white font-semibold"
+                              : colorScheme === "dark"
+                                ? "text-gray-300"
+                                : "text-gray-700"
+                          }`}
+                        >
+                          {hobby}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Action Button */}
+              <TouchableOpacity
+                onPress={handleAdd}
+                activeOpacity={0.9}
+                style={{
+                  backgroundColor: "#6366f1",
+                }}
+                className="w-full py-4 rounded-xl shadow-lg mb-6"
+              >
+                <View className="flex-row items-center justify-center">
+                  <Ionicons name="person-add" size={20} color="#fff" />
+                  <Text className="text-white text-base font-bold ml-2">
+                    Send Connection Request
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 };

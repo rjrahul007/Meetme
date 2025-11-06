@@ -72,7 +72,21 @@ export const getMapHTML = (MAPTILER_KEY: string) => `
       markerContainer.style.display = 'none';
       pulse.style.display = 'none';
 
-      // Reset map view when marker is clicked
+      // Reset map view when marker is clicked and notify React Native
+      const postMarkerTapped = () => {
+        try {
+          const avatar = document.getElementById('markerImg')?.src || null;
+          const payload = { name: state.name || null, avatar, latitude: state.lat || null, longitude: state.lng || null };
+          const msg = JSON.stringify({ type: 'markerTapped', payload });
+          if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
+            window.ReactNativeWebView.postMessage(msg);
+          } else if (window.parent && typeof window.parent.postMessage === 'function') {
+            // fallback for some WebView setups
+            window.parent.postMessage(msg, '*');
+          }
+        } catch (e) {}
+      };
+
       const handleMarkerClick = () => {
         try {
           const currentZoom = map.getZoom?.() ?? DEFAULT_ZOOM;
@@ -84,6 +98,8 @@ export const getMapHTML = (MAPTILER_KEY: string) => `
             }
           }
         } catch (err) {}
+        // always post message so RN can open the sheet regardless of reset
+        postMarkerTapped();
       };
 
       ['click', 'touchend'].forEach(evt => {
